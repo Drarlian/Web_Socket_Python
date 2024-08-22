@@ -3,6 +3,22 @@ from fastapi.responses import HTMLResponse
 from typing import Dict
 import uuid
 
+"""
+POR QUE USAR "connections" E "websocket_to_id" NO MESMO CÓDIGO?
+
+Se o sistema precisar acessar as conexões WebSocket com frequência usando apenas o ID da conexão 
+(e não o próprio WebSocket), o dicionário connections pode ser útil. 
+Isso evita a necessidade de fazer uma busca reversa no dicionário websocket_to_id para encontrar o WebSocket 
+correspondente a um ID específico, o que poderia ser ineficiente se o número de conexões for grande.
+
+Exemplo: Se você estiver implementando uma lógica onde precisa enviar mensagens diretamente para um WebSocket 
+específico com base no ID de conexão (por exemplo, notificações/mensagens personalizadas para usuários específicos), 
+o uso de connections permitiria um acesso direto e mais eficiente ao WebSocket associado a um determinado ID.
+
+OBS: Enviar mensagens personalizadas para usuários específicos (chat privado) seria um bom motivo para usar 
+"connections" e "websocket_to_id".
+"""
+
 app = FastAPI()
 
 html = """
@@ -66,9 +82,16 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             # Enviar a mensagem para todos os clientes conectados, incluindo o remetente, com o ID de conexão
             sender_id = websocket_to_id[websocket]
+            # for connection, conn_id in websocket_to_id.items():  # -> Utilizando apenas o websocket_to_id
             for conn_id, connection in connections.items():
                 await connection.send_text(f"{sender_id}: {data}")
     except WebSocketDisconnect:
         # Remover a conexão da lista quando o cliente desconectar
         connections.pop(websocket_to_id[websocket], None)
         websocket_to_id.pop(websocket, None)
+
+
+# Exemplo de notificação/mensagem personalizada para usário específico:
+async def send_notification(user_id: str, message: str):
+    if user_id in connections:
+        await connections[user_id].send_text(message)
